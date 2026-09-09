@@ -41,7 +41,7 @@ and 5-second history. `make demo` walks through the same thing with commentary.
 | Path | What it is |
 |---|---|
 | `docker-compose.yml` | token-bootstrap → influxdb3 → **plugin-installer** → init → three Telegraf agents (+ collectd) → grafana |
-| `telegraf/` | One config per node (`daq.conf`, `compute.conf`, `storage.conf`) and the minimal `types.db` the collectd parser needs |
+| `telegraf/` | One config per node (`daq.conf`, `compute.conf`, `storage.conf`), the minimal `types.db` the collectd parser needs, and `flap.sh` (the storage node's simulated outage cycle) |
 | `collectd/` | The DAQ node's collectd image and config |
 | `influxdb/init.sh` | Database with 5-year retention, explicit table schemas, downsampling triggers (`influxdb/schema.md` is the table reference) |
 | `installer/` | Installs the pinned `downsampler` plugin from the [plugin registry](https://github.com/influxdata/influxdb3_plugins/releases/tag/registry) via `POST /api/v3/plugins/files` — no `gh:` paths, no plugin bind mount |
@@ -84,10 +84,19 @@ The full "which metric is stopped by which filter" tables are in
 ## Configuration
 
 `.env` (see `.env.example`): license email and type, Grafana port and admin
-password, registry index URL / offline artifact dir. Alert thresholds live in
-`grafana/provisioning/alerting/rules.yaml`; mock value ranges in the Telegraf
-configs. Alerts fire in the UI and go nowhere by design (no contact points, and
-a muted catch-all route).
+password, the storage node's outage cycle (`STORAGE_FLAP`, `STORAGE_UP_S`,
+`STORAGE_DOWN_S`), registry index URL / offline artifact dir. Alert thresholds
+live in `grafana/provisioning/alerting/rules.yaml`; mock value ranges in the
+Telegraf configs. Alerts fire in the UI and go nowhere by design (no contact
+points, and a muted catch-all route).
+
+**Something is always alerting.** So the overview's alert list is never just
+empty, the `storage` node misbehaves on purpose: its mock temperature is a
+slow sine wave (63–87 °C over 4 minutes) that crosses the 80 °C threshold for
+a third of every cycle, and its agent runs 3 minutes on / 2 minutes off
+(`telegraf/flap.sh`), so "Temperature high" and "Node down" fire and clear
+in turn while `daq` and `compute` stay green. `STORAGE_FLAP=false` turns the
+outages off.
 
 ## Scaling to production
 

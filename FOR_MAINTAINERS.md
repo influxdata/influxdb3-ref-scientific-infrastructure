@@ -69,5 +69,9 @@ A parse error comes back as HTTP 500 with the reason in `docker compose logs gra
   in favour of `INFLUXDB3_LICENSE_EMAIL` / `INFLUXDB3_LICENSE_TYPE` (compose
   already uses the new names). A `home` license runs on 2 cores and is enough
   for this demo; an expired trial fails with `TrialExpired`.
+- **The storage node is supposed to flap.** `[flap]` lines in its log and a
+  red card for 2 minutes of every 5 are by design (`STORAGE_FLAP=false` to
+  stop). Count-based checks on the storage host are only valid during its
+  up phase.
 - **All three nodes report the same uptime** inside Docker: `inputs.system`
   reads the kernel uptime and every container shares the VM kernel.

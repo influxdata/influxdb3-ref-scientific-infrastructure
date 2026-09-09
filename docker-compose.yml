@@ -145,17 +145,24 @@ services:
     command: ["sh", "-c", "export INFLUX_TOKEN=$$(cat /tokens/.sci-token-plain) && exec telegraf --config /etc/telegraf/telegraf.conf"]
     restart: unless-stopped
 
-  # ── storage node ── same agent shape as compute; see telegraf/storage.conf
+  # ── storage node ── same agent shape as compute (telegraf/storage.conf), plus
+  # a simulated outage cycle (telegraf/flap.sh): up STORAGE_UP_S, silent
+  # STORAGE_DOWN_S, forever, so the "Node down" alert fires periodically.
   telegraf-storage:
     image: telegraf:1.40
     container_name: sci-telegraf-storage
     depends_on:
       influxdb3-init:
         condition: service_completed_successfully
+    environment:
+      STORAGE_FLAP: ${STORAGE_FLAP:-true}
+      STORAGE_UP_S: ${STORAGE_UP_S:-180}
+      STORAGE_DOWN_S: ${STORAGE_DOWN_S:-120}
     volumes:
       - ./telegraf/storage.conf:/etc/telegraf/telegraf.conf:ro
+      - ./telegraf/flap.sh:/usr/local/bin/flap.sh:ro
       - influxdb-data:/tokens:ro
-    command: ["sh", "-c", "export INFLUX_TOKEN=$$(cat /tokens/.sci-token-plain) && exec telegraf --config /etc/telegraf/telegraf.conf"]
+    command: ["sh", "/usr/local/bin/flap.sh"]
     restart: unless-stopped
 
   # ── daq node ── Telegraf receiving collectd over UDP; see telegraf/daq.conf

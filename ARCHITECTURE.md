@@ -34,7 +34,7 @@ Grafana. Everything is one `docker compose` stack:
 | sink | `sci-influxdb3` (`influxdb:3-enterprise`, `--mode all`, plugin dir inside the data volume), `sci-grafana` (13.2), one-shots `sci-token-bootstrap`, `sci-plugin-installer`, `sci-influxdb3-init` | database `sci`, Processing Engine, dashboards |
 | daq | `sci-telegraf-daq` (Telegraf 1.40), `sci-collectd` (Debian bookworm `collectd-core`) | collectd → UDP 25826 → Telegraf; temperature from `inputs.mock`, uptime from `inputs.system` |
 | compute | `sci-telegraf-compute` | `inputs.mock` for cpu/load/mem/temp, `inputs.system` for uptime, `inputs.processes` collected and dropped |
-| storage | `sci-telegraf-storage` | same agent shape as compute, different value ranges |
+| storage | `sci-telegraf-storage` | same agent shape as compute, different value ranges; sine-wave temperature and a 3-min-on / 2-min-off outage cycle so alerts fire periodically |
 
 The "node" grouping is conceptual — compose gives each container its own
 network identity — but every agent behaves as a remote host would: it knows
@@ -270,6 +270,22 @@ created by hand in the UI, and provisioned dashboards are read-only there.
   Firing in the UI and in the overview's alert list; nothing is sent, nothing
   errors. (A mute timing directly on the root route is rejected by Grafana.)
 
+- **Something is always alerting (chaos on the storage node).** A demo whose
+  alert list is empty teaches nothing, so the `storage` node misbehaves on
+  purpose, in two independent ways:
+  - its mock temperature is a **sine wave** (`inputs.mock.sine_wave`, base
+    75 °C, amplitude 12, `period = 0.00833333` = 240 samples per cycle at 1 Hz)
+    that sits above the 80 °C threshold for about 87 s of every 4-minute cycle;
+    `Temperature high{storage}` fires ~40 s after the crossing (30 s max window
+    + 30 s pending) and clears ~30 s after the wave drops back;
+  - its agent runs under `telegraf/flap.sh`: **3 min on, 2 min off** (`timeout`
+    sends SIGTERM, Telegraf flushes and exits, the script sleeps, repeat). The
+    overview card goes `DOWN` ~30 s into the outage, `Node down{storage}` fires
+    after ~80 s of silence and clears ~25 s after the agent returns. The
+    minimum outage that fires the alert is ~90 s; 30 s never gets past Pending.
+  `STORAGE_FLAP`, `STORAGE_UP_S`, `STORAGE_DOWN_S` in `.env` control the
+  cycle; `STORAGE_FLAP=false` runs the storage agent like the other two.
+
 Anonymous viewers can open every dashboard; `admin` (password from `.env`) is
 only needed for the HTTP API and for editing.
 
@@ -328,6 +344,9 @@ Demo scope, single trust boundary:
 - **TLS** on InfluxDB 3 and Grafana; `insecureGrpc: false` in the datasource.
 - **Alert delivery.** Add a contact point and re-point the root policy;
   delete the `always` mute timing.
+- **Chaos off.** `STORAGE_FLAP=false`, and give the storage node a real
+  temperature input; the sine wave and the outage cycle exist only so the demo
+  always has an alert to show.
 
 ## 12. Extending: more nodes, more metrics
 
