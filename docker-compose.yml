@@ -102,5 +102,21 @@ services:
     entrypoint: ["/usr/local/bin/sci-init.sh"]
     restart: "no"
 
+  # ── compute node ── Telegraf with inputs.mock; see telegraf/compute.conf
+  telegraf-compute:
+    image: telegraf:1.40
+    container_name: sci-telegraf-compute
+    depends_on:
+      influxdb3-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./telegraf/compute.conf:/etc/telegraf/telegraf.conf:ro
+      # Demo shortcut: the agent reads the admin token from the shared
+      # volume. A real remote node would get a scoped write token through
+      # its config management (see ARCHITECTURE.md).
+      - influxdb-data:/tokens:ro
+    command: ["sh", "-c", "export INFLUX_TOKEN=$$(cat /tokens/.sci-token-plain) && exec telegraf --config /etc/telegraf/telegraf.conf"]
+    restart: unless-stopped
+
 volumes:
   influxdb-data:
