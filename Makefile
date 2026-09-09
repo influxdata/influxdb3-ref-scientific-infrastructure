@@ -2,10 +2,16 @@ SHELL := /usr/bin/env bash
 .DEFAULT_GOAL := help
 COMPOSE := docker compose
 
-.PHONY: help up down clean logs ps open dashboards cli query cli-example
+.PHONY: help up down clean demo demo-fresh logs ps open dashboards cli query cli-example
 
 help: ## Show targets
 	@awk 'BEGIN{FS=":.*##"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  \033[1;36m%-20s\033[0m %s\n",$$1,$$2}' $(MAKEFILE_LIST)
+
+demo: ## End-to-end scripted demo: stack up → Grafana → query results
+	@./scripts/demo.sh
+
+demo-fresh: ## Same as demo, but wipes state first (forces license re-validation)
+	@./scripts/demo.sh --fresh
 
 up: ## Prompt for email (if needed), write .env, then bring the stack up
 	@./scripts/setup.sh
@@ -57,5 +63,5 @@ query: ## One-shot query. Usage: make query sql='SELECT COUNT(*) FROM cpu'
 
 cli-example: ## Run a named curated CLI example. Usage: make cli-example name=list-databases
 	@test -n "$(name)" || (echo "usage: make cli-example name=<example>"; exit 1)
-	@grep -A 20 "^## $(name)" CLI_EXAMPLES.md | sed -n '/^```bash/,/^```/p' | sed '1d;$$d' \
-	  | while read -r line; do echo "+ $$line"; $(COMPOSE) exec -T influxdb3 bash -lc "export TOKEN=\$$(cat /var/lib/influxdb3/.sci-token-plain); $$line"; done
+	@awk -v want="$(name)" '/^## /{on=($$2==want)} on && /^```bash/{inb=1; next} on && inb && /^```/{exit} on && inb{print}' CLI_EXAMPLES.md \
+	  | while read -r line; do echo "+ $$line"; $(COMPOSE) exec -T influxdb3 bash -lc "export TOKEN=\$$(cat /var/lib/influxdb3/.sci-token-plain); $$line" | grep -v deprecated; done

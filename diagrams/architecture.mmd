@@ -1,0 +1,38 @@
+%% Architecture: precision scientific infrastructure monitoring (TIG + collectd)
+%% Render: npx -y @mermaid-js/mermaid-cli -i architecture.mmd -o architecture.png -b transparent
+flowchart LR
+    subgraph registry["Plugin registry (GitHub release)"]
+        IDX["index.json + artifacts<br/>sha256-verified"]
+    end
+
+    subgraph daq["daq node"]
+        CD["collectd<br/>cpu · load · memory<br/>(+ uptime · interface · df, dropped downstream)"]
+        TD["telegraf-daq<br/>socket_listener (collectd) · mock temp · system<br/>tagpass · fieldinclude · rename · namepass · taginclude"]
+        CD -- "UDP 25826" --> TD
+    end
+
+    subgraph compute["compute node"]
+        TC["telegraf-compute<br/>mock cpu/load/mem/temp · system · processes<br/>fieldinclude · rename · namepass · taginclude"]
+    end
+
+    subgraph storage["storage node"]
+        TS["telegraf-storage<br/>same agent shape, other value ranges"]
+    end
+
+    subgraph sink["sink node"]
+        INST["plugin-installer<br/>(one-shot)"]
+        subgraph db["InfluxDB 3 Enterprise — database sci · 5-year retention"]
+            direction LR
+            RAW[("raw tables<br/>cpu · load · mem · temperature · uptime<br/>1 row/s/host · nanosecond timestamps")]
+            DS["downsampler (registry plugin)<br/>cron */5 · offset 5s · window 5s"]
+            R5[("rollup tables ‹table›_5s<br/>1 row/5 s/host · record_count = 5")]
+            RAW --> DS --> R5
+        end
+        GF["Grafana<br/>fleet overview · 3 node dashboards<br/>threshold alerts (delivery muted)"]
+        R5 --> GF
+    end
+
+    TD -- "/api/v2/write · every 1 s" --> RAW
+    TC -- "/api/v2/write · every 1 s" --> RAW
+    TS -- "/api/v2/write · every 1 s" --> RAW
+    IDX -->|"POST /api/v3/plugins/files"| INST --> db
