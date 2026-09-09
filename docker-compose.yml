@@ -118,5 +118,18 @@ services:
     command: ["sh", "-c", "export INFLUX_TOKEN=$$(cat /tokens/.sci-token-plain) && exec telegraf --config /etc/telegraf/telegraf.conf"]
     restart: unless-stopped
 
+  # ── storage node ── same agent shape as compute; see telegraf/storage.conf
+  telegraf-storage:
+    image: telegraf:1.40
+    container_name: sci-telegraf-storage
+    depends_on:
+      influxdb3-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./telegraf/storage.conf:/etc/telegraf/telegraf.conf:ro
+      - influxdb-data:/tokens:ro
+    command: ["sh", "-c", "export INFLUX_TOKEN=$$(cat /tokens/.sci-token-plain) && exec telegraf --config /etc/telegraf/telegraf.conf"]
+    restart: unless-stopped
+
 volumes:
   influxdb-data:
