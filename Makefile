@@ -2,7 +2,7 @@ SHELL := /usr/bin/env bash
 .DEFAULT_GOAL := help
 COMPOSE := docker compose
 
-.PHONY: help up down clean logs ps open cli query cli-example
+.PHONY: help up down clean logs ps open dashboards cli query cli-example
 
 help: ## Show targets
 	@awk 'BEGIN{FS=":.*##"} /^[a-zA-Z0-9_-]+:.*##/ {printf "  \033[1;36m%-20s\033[0m %s\n",$$1,$$2}' $(MAKEFILE_LIST)
@@ -35,6 +35,9 @@ open: ## Open Grafana in the browser
 	@(command -v open >/dev/null && open "http://localhost:$${GRAFANA_PORT:-3000}") || \
 	 (command -v xdg-open >/dev/null && xdg-open "http://localhost:$${GRAFANA_PORT:-3000}") || \
 	 echo "open http://localhost:$${GRAFANA_PORT:-3000}"
+
+dashboards: ## Regenerate the per-node Grafana dashboards from grafana/dashboards/node.json.tmpl
+	@./scripts/gen-node-dashboards.sh
 
 cli: ## Shell into influxdb3 container; TOKEN is exported, `iql <sql>` runs queries
 	@$(COMPOSE) exec influxdb3 bash -c '\
