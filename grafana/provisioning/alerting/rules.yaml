@@ -1,0 +1,123 @@
+# Alerting, provisioned from this file (read at Grafana start-up, or via
+# POST /api/admin/provisioning/alerting/reload).
+#
+# Three very basic threshold rules, evaluated every 10 s against the 5-second
+# rollup tables, one alert instance per host. Delivery goes NOWHERE on
+# purpose, twice over: the root policy uses Grafana's built-in `empty`
+# receiver (no contact points are configured), and a catch-all child route
+# carries an always-on mute timing. Instances show as Firing in the UI and in
+# the overview's alert list, but no notification is ever sent and no
+# delivery errors are logged.
+apiVersion: 1
+
+muteTimes:
+  - orgId: 1
+    name: always
+    time_intervals:
+      - times:
+          - start_time: "00:00"
+            end_time: "24:00"
+
+policies:
+  - orgId: 1
+    receiver: empty
+    group_by: ["grafana_folder", "alertname"]
+    routes:
+      - receiver: empty
+        object_matchers:
+          - ["alertname", "=~", ".+"]
+        mute_time_intervals: ["always"]
+
+groups:
+  - orgId: 1
+    name: sci
+    folder: Scientific infrastructure
+    interval: 10s
+    rules:
+      - uid: sci-cpu-high
+        title: CPU high
+        condition: C
+        for: 30s
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU above 90% on {{ $labels.host }}"
+        data:
+          - refId: A
+            relativeTimeRange: { from: 60, to: 0 }
+            datasourceUid: influxdb3
+            model:
+              refId: A
+              rawQuery: true
+              format: table
+              rawSql: "SELECT host, max(usage_active_avg) AS usage_active FROM cpu_5s WHERE time > now() - INTERVAL '30 seconds' GROUP BY host"
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [90] }
+
+      - uid: sci-temp-high
+        title: Temperature high
+        condition: C
+        for: 30s
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: critical
+        annotations:
+          summary: "Temperature above 80 °C on {{ $labels.host }}"
+        data:
+          - refId: A
+            relativeTimeRange: { from: 60, to: 0 }
+            datasourceUid: influxdb3
+            model:
+              refId: A
+              rawQuery: true
+              format: table
+              rawSql: "SELECT host, max(temp_c_avg) AS temp_c FROM temperature_5s WHERE time > now() - INTERVAL '30 seconds' GROUP BY host"
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [80] }
+
+      # A node is down when its newest rollup row is older than 45 s (a
+      # healthy node's newest row is 10-16 s old by construction). The 24 h
+      # look-back keeps a stopped node in the result set so its instance
+      # fires instead of silently disappearing.
+      - uid: sci-node-down
+        title: Node down
+        condition: C
+        for: 30s
+        noDataState: Alerting
+        execErrState: Error
+        labels:
+          severity: critical
+        annotations:
+          summary: "No data from {{ $labels.host }} for more than 45 s"
+        data:
+          - refId: A
+            relativeTimeRange: { from: 60, to: 0 }
+            datasourceUid: influxdb3
+            model:
+              refId: A
+              rawQuery: true
+              format: table
+              rawSql: "SELECT host, date_part('epoch', now()) - date_part('epoch', max(time)) AS age_s FROM uptime_5s WHERE time > now() - INTERVAL '24 hours' GROUP BY host"
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [45] }
