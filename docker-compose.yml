@@ -1,0 +1,91 @@
+# Compose stack for the scientific-infrastructure reference architecture.
+#
+# Four "network nodes" on one compose network:
+#   sink     influxdb3 (single node) + grafana, plus three one-shots:
+#            token-bootstrap, plugin-installer, influxdb3-init
+#   daq      telegraf-daq + collectd  (collectd -> UDP 25826 -> telegraf-daq)
+#   compute  telegraf-compute         (inputs.mock)
+#   storage  telegraf-storage         (inputs.mock)
+#
+# Services are added step by step (see the implementation plan); this file
+# grows with each step.
+name: influxdb3-ref-scientific-infrastructure
+
+services:
+  # One-shot: generate an offline admin token on first boot. The server
+  # needs one via --admin-token-file; the recovery endpoint can only
+  # REGENERATE existing tokens, not create the first one. Also writes the
+  # plain-text token (mode 644) that the healthcheck, the Telegraf agents
+  # and Grafana read as non-root users, and creates the plugin directory
+  # the server requires to exist at startup (plugins are uploaded into it
+  # later by the plugin-installer service).
+  token-bootstrap:
+    image: influxdb:3-enterprise
+    container_name: sci-token-bootstrap
+    environment:
+      INFLUXDB3_UNSET_VARS: LOG_FILTER
+      INFLUXDB3_LOG_FILTER: info
+    volumes:
+      - influxdb-data:/var/lib/influxdb3
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        mkdir -p /var/lib/influxdb3/plugins
+        if [ -s /var/lib/influxdb3/.sci-operator-token ]; then
+          echo "[bootstrap] admin token already exists, skipping create"
+        else
+          echo "[bootstrap] generating offline admin token"
+          influxdb3 create token --admin --offline \
+            --name sci-admin \
+            --output-file /var/lib/influxdb3/.sci-operator-token
+          chmod 600 /var/lib/influxdb3/.sci-operator-token
+          echo "[bootstrap] admin token written"
+        fi
+        if [ -s /var/lib/influxdb3/.sci-token-plain ]; then
+          echo "[bootstrap] plain-text token already exists, skipping"
+        else
+          sed -n 's/.*"token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+              /var/lib/influxdb3/.sci-operator-token | head -n1 | tr -d '\n' \
+              > /var/lib/influxdb3/.sci-token-plain
+          chmod 644 /var/lib/influxdb3/.sci-token-plain
+          echo "[bootstrap] plain-text token written"
+        fi
+    restart: "no"
+
+  influxdb3:
+    image: influxdb:3-enterprise
+    container_name: sci-influxdb3
+    depends_on:
+      token-bootstrap:
+        condition: service_completed_successfully
+    environment:
+      INFLUXDB3_LICENSE_EMAIL: ${INFLUXDB3_ENTERPRISE_EMAIL:?set INFLUXDB3_ENTERPRISE_EMAIL in .env}
+      INFLUXDB3_LICENSE_TYPE: ${INFLUXDB3_ENTERPRISE_LICENSE_TYPE:-trial}
+      INFLUXDB3_OBJECT_STORE: file
+      INFLUXDB3_DATA_DIR: /var/lib/influxdb3
+      INFLUXDB3_UNSET_VARS: LOG_FILTER
+      INFLUXDB3_LOG_FILTER: info
+    command: >
+      serve
+        --node-id sci-node0
+        --cluster-id sci
+        --mode all
+        --object-store file
+        --data-dir /var/lib/influxdb3
+        --plugin-dir /var/lib/influxdb3/plugins
+        --virtual-env-location /var/lib/influxdb3/plugin-venv
+        --admin-token-file /var/lib/influxdb3/.sci-operator-token
+        --admin-token-recovery-http-bind 0.0.0.0:8182
+    volumes:
+      - influxdb-data:/var/lib/influxdb3
+    ports:
+      - "8181:8181"
+    healthcheck:
+      test: ["CMD-SHELL", "test -s /var/lib/influxdb3/.sci-token-plain && curl -sf --max-time 2 -H \"Authorization: Bearer $$(cat /var/lib/influxdb3/.sci-token-plain)\" http://127.0.0.1:8181/health -o /dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 120
+      start_period: 5s
+
+volumes:
+  influxdb-data:
