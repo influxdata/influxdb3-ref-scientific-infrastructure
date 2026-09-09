@@ -1,0 +1,13 @@
+# Pinned registry plugins for this reference architecture.
+#
+# Each [[plugin]] entry is resolved against the registry index at
+# https://github.com/influxdata/influxdb3_plugins/releases/download/registry/index.json
+# and installed by installer/install_plugins.py (download, sha256-verify,
+# upload through POST /api/v3/plugins/files as {name}-{version}/<file>).
+# Versions are pinned on purpose: the demo must be reproducible. To upgrade,
+# bump the version here and re-run `make up` (uploads overwrite in place and
+# init.sh re-points the triggers at the new path).
+
+[[plugin]]
+name = "downsampler"
+version = "1.4.0"

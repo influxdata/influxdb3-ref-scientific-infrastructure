@@ -87,18 +87,45 @@ services:
       retries: 120
       start_period: 5s
 
+
+  # One-shot: install Processing Engine plugins from the public plugin
+  # registry through the files API (see installer/). Pinned + sha256-verified;
+  # the server needs no plugin bind mount.
+  plugin-installer:
+    build:
+      context: .
+      dockerfile: installer/Dockerfile
+    container_name: sci-plugin-installer
+    depends_on:
+      influxdb3:
+        condition: service_healthy
+    environment:
+      INFLUX_URL: http://influxdb3:8181
+      TOKEN_FILE: /tokens/.sci-operator-token
+      LOCK_FILE: /installer/plugins.lock
+      REGISTRY_INDEX_URL: ${REGISTRY_INDEX_URL:-https://github.com/influxdata/influxdb3_plugins/releases/download/registry/index.json}
+      INSTALLER_OFFLINE_DIR: ${INSTALLER_OFFLINE_DIR:-}
+    volumes:
+      - influxdb-data:/tokens
+      - ./installer:/installer:ro
+    restart: "no"
+
+  # One-shot: database, retention, tables, downsampling triggers (influxdb/init.sh)
   influxdb3-init:
     image: influxdb:3-enterprise
     container_name: sci-influxdb3-init
     depends_on:
       influxdb3:
         condition: service_healthy
+      plugin-installer:
+        condition: service_completed_successfully
     environment:
       INFLUXDB3_UNSET_VARS: LOG_FILTER
       INFLUXDB3_LOG_FILTER: info
     volumes:
       - influxdb-data:/var/lib/influxdb3
       - ./influxdb/init.sh:/usr/local/bin/sci-init.sh:ro
+      - ./installer/plugins.lock:/installer/plugins.lock:ro
     entrypoint: ["/usr/local/bin/sci-init.sh"]
     restart: "no"
 

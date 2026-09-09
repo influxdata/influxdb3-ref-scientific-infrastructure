@@ -105,10 +105,57 @@ uptime_5s|uptime_max:int64
 TABLES
 }
 
-# Filled in when the plugin-installer service and the downsampling
-# triggers are added (plan step 6).
+# Read a pinned version out of installer/plugins.lock so trigger paths always
+# match what the installer uploaded (single source of truth for pins).
+lock_version() {
+    local name="$1"
+    awk -v want="$name" '
+        $1 == "name"    && $3 == "\"" want "\"" { found = 1 }
+        found && $1 == "version" { gsub(/"/, "", $3); print $3; exit }
+    ' "${LOCK_FILE}"
+}
+
+RAW_TABLES="cpu load mem temperature uptime"
+
+# Trigger flags don't update in place on re-run; delete-and-recreate corrects
+# stale catalog entries on subsequent boots (a no-op on first boot).
+delete_triggers() {
+    local t
+    for t in ${RAW_TABLES}; do
+        cli delete trigger "downsample_${t}" --database "${INFLUX_DB}" --force 2>/dev/null || true
+    done
+}
+
+# One downsampling trigger per raw table: raw (1 row/s/host) -> <table>_5s
+# (1 row/5 s/host) via the registry downsampler plugin.
+#
+# Why a wall-clock cron and offset=5s/window=5s rather than every:5s: the
+# plugin queries [call_time - offset - window, call_time - offset) and
+# formats both bounds as whole seconds, so a tick aligned to :05/:10/... reads
+# exactly one complete 5-second bucket and writes it once. every:5s is not
+# wall-clock aligned, straddles two buckets every tick and rewrites each
+# bucket twice with partial data.
 ensure_triggers() {
-    log "no triggers registered yet"
+    local ds_ver t calc
+    ds_ver=$(lock_version downsampler)
+    if [[ -z "${ds_ver}" ]]; then
+        echo "[init] FATAL: downsampler version not found in ${LOCK_FILE}" >&2
+        exit 1
+    fi
+    log "pinned versions: downsampler=${ds_ver}"
+    delete_triggers
+    for t in ${RAW_TABLES}; do
+        calc=avg
+        [[ "${t}" == "uptime" ]] && calc=max   # monotonic counter: keep the newest
+        idempotent "trigger downsample_${t}" create trigger \
+            --database "${INFLUX_DB}" \
+            --trigger-spec "cron:*/5 * * * * *" \
+            --path "downsampler-${ds_ver}/downsampler.py" \
+            --trigger-arguments "source_measurement=${t},target_measurement=${t}_5s,target_database=${INFLUX_DB},interval=5s,window=5s,offset=5s,calculations=${calc}" \
+            "downsample_${t}"
+        cli enable trigger "downsample_${t}" --database "${INFLUX_DB}" 2>/dev/null || \
+            log "trigger downsample_${t} enable no-op"
+    done
 }
 
 main() {
