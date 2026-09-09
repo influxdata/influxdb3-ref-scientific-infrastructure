@@ -131,5 +131,30 @@ services:
     command: ["sh", "-c", "export INFLUX_TOKEN=$$(cat /tokens/.sci-token-plain) && exec telegraf --config /etc/telegraf/telegraf.conf"]
     restart: unless-stopped
 
+  # ── daq node ── Telegraf receiving collectd over UDP; see telegraf/daq.conf
+  telegraf-daq:
+    image: telegraf:1.40
+    container_name: sci-telegraf-daq
+    depends_on:
+      influxdb3-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./telegraf/daq.conf:/etc/telegraf/telegraf.conf:ro
+      - ./telegraf/types.db:/etc/telegraf/types.db:ro
+      - influxdb-data:/tokens:ro
+    command: ["sh", "-c", "export INFLUX_TOKEN=$$(cat /tokens/.sci-token-plain) && exec telegraf --config /etc/telegraf/telegraf.conf"]
+    restart: unless-stopped
+
+  # collectd on the daq node: cpu/load/memory (+ uptime/interface/df that
+  # Telegraf drops) -> network plugin -> telegraf-daq:25826
+  collectd:
+    build:
+      context: ./collectd
+    container_name: sci-collectd
+    depends_on:
+      telegraf-daq:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
   influxdb-data:
