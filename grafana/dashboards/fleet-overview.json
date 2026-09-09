@@ -1,0 +1,586 @@
+{
+  "uid": "sci-fleet",
+  "title": "Fleet overview",
+  "tags": [
+    "sci"
+  ],
+  "timezone": "browser",
+  "editable": false,
+  "graphTooltip": 0,
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "version": 2,
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s",
+      "1m"
+    ]
+  },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [
+    {
+      "title": "daq",
+      "type": "link",
+      "url": "/d/sci-node-daq",
+      "icon": "dashboard",
+      "tooltip": "daq node dashboard"
+    },
+    {
+      "title": "compute",
+      "type": "link",
+      "url": "/d/sci-node-compute",
+      "icon": "dashboard",
+      "tooltip": "compute node dashboard"
+    },
+    {
+      "title": "storage",
+      "type": "link",
+      "url": "/d/sci-node-storage",
+      "icon": "dashboard",
+      "tooltip": "storage node dashboard"
+    }
+  ],
+  "panels": [
+    {
+      "type": "stat",
+      "title": "daq",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb3"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 0,
+        "y": 0
+      },
+      "links": [
+        {
+          "title": "daq dashboard",
+          "url": "/d/sci-node-daq",
+          "targetBlank": false
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb3"
+          },
+          "rawSql": "SELECT date_part('epoch', now()) - date_part('epoch', max(time)) AS age_s FROM uptime_5s WHERE host = 'daq' AND time > now() - INTERVAL '10 minutes'",
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "DOWN",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 30
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "range",
+              "options": {
+                "from": 0,
+                "to": 30,
+                "result": {
+                  "text": "UP",
+                  "color": "green",
+                  "index": 0
+                }
+              }
+            },
+            {
+              "type": "range",
+              "options": {
+                "from": 30,
+                "to": 1000000000000.0,
+                "result": {
+                  "text": "DOWN",
+                  "color": "red",
+                  "index": 1
+                }
+              }
+            },
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "DOWN",
+                  "color": "red",
+                  "index": 2
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "description": "UP when the newest 5s rollup row for this node is less than 30 s old (a healthy node's newest row is 10-16 s old by construction: bucket start + 5 s offset + up to 5 s to the next tick); DOWN otherwise or when there is no data.",
+      "id": 1
+    },
+    {
+      "type": "stat",
+      "title": "compute",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb3"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 8,
+        "y": 0
+      },
+      "links": [
+        {
+          "title": "compute dashboard",
+          "url": "/d/sci-node-compute",
+          "targetBlank": false
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb3"
+          },
+          "rawSql": "SELECT date_part('epoch', now()) - date_part('epoch', max(time)) AS age_s FROM uptime_5s WHERE host = 'compute' AND time > now() - INTERVAL '10 minutes'",
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "DOWN",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 30
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "range",
+              "options": {
+                "from": 0,
+                "to": 30,
+                "result": {
+                  "text": "UP",
+                  "color": "green",
+                  "index": 0
+                }
+              }
+            },
+            {
+              "type": "range",
+              "options": {
+                "from": 30,
+                "to": 1000000000000.0,
+                "result": {
+                  "text": "DOWN",
+                  "color": "red",
+                  "index": 1
+                }
+              }
+            },
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "DOWN",
+                  "color": "red",
+                  "index": 2
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "description": "UP when the newest 5s rollup row for this node is less than 30 s old (a healthy node's newest row is 10-16 s old by construction: bucket start + 5 s offset + up to 5 s to the next tick); DOWN otherwise or when there is no data.",
+      "id": 2
+    },
+    {
+      "type": "stat",
+      "title": "storage",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb3"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
+      "links": [
+        {
+          "title": "storage dashboard",
+          "url": "/d/sci-node-storage",
+          "targetBlank": false
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb3"
+          },
+          "rawSql": "SELECT date_part('epoch', now()) - date_part('epoch', max(time)) AS age_s FROM uptime_5s WHERE host = 'storage' AND time > now() - INTERVAL '10 minutes'",
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "DOWN",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 30
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "range",
+              "options": {
+                "from": 0,
+                "to": 30,
+                "result": {
+                  "text": "UP",
+                  "color": "green",
+                  "index": 0
+                }
+              }
+            },
+            {
+              "type": "range",
+              "options": {
+                "from": 30,
+                "to": 1000000000000.0,
+                "result": {
+                  "text": "DOWN",
+                  "color": "red",
+                  "index": 1
+                }
+              }
+            },
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "DOWN",
+                  "color": "red",
+                  "index": 2
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "description": "UP when the newest 5s rollup row for this node is less than 30 s old (a healthy node's newest row is 10-16 s old by construction: bucket start + 5 s offset + up to 5 s to the next tick); DOWN otherwise or when there is no data.",
+      "id": 3
+    },
+    {
+      "type": "stat",
+      "title": "daq \u00b7 uptime",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb3"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 0,
+        "y": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb3"
+          },
+          "rawSql": "SELECT max(uptime_max) AS uptime FROM uptime_5s WHERE host = 'daq' AND time > now() - INTERVAL '10 minutes'",
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dtdurations",
+          "decimals": 0,
+          "noValue": "no data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "id": 4
+    },
+    {
+      "type": "stat",
+      "title": "compute \u00b7 uptime",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb3"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 8,
+        "y": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb3"
+          },
+          "rawSql": "SELECT max(uptime_max) AS uptime FROM uptime_5s WHERE host = 'compute' AND time > now() - INTERVAL '10 minutes'",
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dtdurations",
+          "decimals": 0,
+          "noValue": "no data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "id": 5
+    },
+    {
+      "type": "stat",
+      "title": "storage \u00b7 uptime",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb3"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 16,
+        "y": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb3"
+          },
+          "rawSql": "SELECT max(uptime_max) AS uptime FROM uptime_5s WHERE host = 'storage' AND time > now() - INTERVAL '10 minutes'",
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "textMode": "value",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "wideLayout": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dtdurations",
+          "decimals": 0,
+          "noValue": "no data",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "id": 6
+    },
+    {
+      "type": "alertlist",
+      "title": "Alerts",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "options": {
+        "alertName": "",
+        "dashboardAlerts": false,
+        "groupBy": [],
+        "groupMode": "default",
+        "maxItems": 20,
+        "sortOrder": 1,
+        "viewMode": "list",
+        "stateFilter": {
+          "firing": true,
+          "pending": true,
+          "noData": true,
+          "normal": false,
+          "error": true
+        }
+      },
+      "description": "Firing/pending alert instances (rules are provisioned from grafana/provisioning/alerting). Delivery is muted: nothing is sent anywhere.",
+      "id": 7
+    }
+  ],
+  "description": "One card per remote node: status (from the age of the newest uptime_5s row), uptime, and the alert list. Node titles link to the per-node dashboards."
+}

@@ -1,0 +1,15 @@
+# Every JSON file in grafana/dashboards/ becomes a dashboard. Provisioned
+# dashboards are read-only in the UI: edit the JSON (or the node template)
+# and Grafana picks the change up within updateIntervalSeconds.
+apiVersion: 1
+providers:
+  - name: sci
+    orgId: 1
+    folder: ""
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

@@ -1,0 +1,19 @@
+# InfluxDB 3 over SQL (Flight SQL on the same port as HTTP). The admin token
+# is read from the shared volume at start-up ($__file), so nothing has to be
+# pasted into the UI. insecureGrpc: plain http inside the compose network.
+apiVersion: 1
+datasources:
+  - name: InfluxDB 3 (sci)
+    uid: influxdb3
+    type: influxdb
+    access: proxy
+    url: http://influxdb3:8181
+    isDefault: true
+    editable: false
+    jsonData:
+      version: SQL
+      dbName: sci
+      httpMode: POST
+      insecureGrpc: true
+    secureJsonData:
+      token: $__file{/tokens/.sci-token-plain}

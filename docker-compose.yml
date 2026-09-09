@@ -183,5 +183,28 @@ services:
         condition: service_started
     restart: unless-stopped
 
+  # ── sink node UI ── Grafana provisioned from grafana/ (datasource, dashboards, alerts)
+  grafana:
+    image: grafana/grafana:13.2.1
+    container_name: sci-grafana
+    depends_on:
+      influxdb3-init:
+        condition: service_completed_successfully
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"      # dashboards open without a login
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - influxdb-data:/tokens:ro             # datasource token via $__file{}
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    restart: unless-stopped
+
 volumes:
   influxdb-data:
