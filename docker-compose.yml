@@ -87,5 +87,20 @@ services:
       retries: 120
       start_period: 5s
 
+  influxdb3-init:
+    image: influxdb:3-enterprise
+    container_name: sci-influxdb3-init
+    depends_on:
+      influxdb3:
+        condition: service_healthy
+    environment:
+      INFLUXDB3_UNSET_VARS: LOG_FILTER
+      INFLUXDB3_LOG_FILTER: info
+    volumes:
+      - influxdb-data:/var/lib/influxdb3
+      - ./influxdb/init.sh:/usr/local/bin/sci-init.sh:ro
+    entrypoint: ["/usr/local/bin/sci-init.sh"]
+    restart: "no"
+
 volumes:
   influxdb-data:
